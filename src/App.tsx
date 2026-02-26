@@ -18,7 +18,15 @@ import {
   Send,
   ExternalLink,
   ChevronRight,
-  Flame
+  Flame,
+  ListMusic,
+  Search,
+  RefreshCw,
+  Globe,
+  Music as MusicIcon,
+  Trophy,
+  Film,
+  Newspaper
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import moment from 'moment';
@@ -37,7 +45,7 @@ import {
 } from './services/firebase';
 import { AppSettings, Banners, Category, Channel, Highlight, Match, Server } from './types';
 
-type Tab = 'home' | 'channels' | 'highlights' | 'about' | 'contact' | 'copyright';
+type Tab = 'home' | 'channels' | 'highlights' | 'playlist' | 'about' | 'contact' | 'copyright';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
@@ -67,6 +75,108 @@ export default function App() {
   const [matchFilter, setMatchFilter] = useState<'all' | 'live' | 'upcoming' | 'recent'>('all');
   const [channelFilter, setChannelFilter] = useState('All');
   const [highlightFilter, setHighlightFilter] = useState('All');
+
+  // Search State
+  const [channelSearchQuery, setChannelSearchQuery] = useState('');
+  const [highlightSearchQuery, setHighlightSearchQuery] = useState('');
+
+  // Playlist State
+  const [playlistChannels, setPlaylistChannels] = useState<{ [key: string]: any[] }>({});
+  const [currentPlaylistUrl, setCurrentPlaylistUrl] = useState<string | null>(null);
+  const [playlistFilter, setPlaylistFilter] = useState('All');
+  const [isPlaylistLoading, setIsPlaylistLoading] = useState(false);
+
+  const featuredPlaylists = [
+    { name: 'Bangladesh', url: 'https://iptv-org.github.io/iptv/countries/bd.m3u', icon: Globe },
+    { name: 'India', url: 'https://iptv-org.github.io/iptv/countries/in.m3u', icon: Globe },
+    { name: 'Sports', url: 'https://iptv-org.github.io/iptv/categories/sports.m3u', icon: Trophy },
+    { name: 'Music', url: 'https://iptv-org.github.io/iptv/categories/music.m3u', icon: MusicIcon },
+    { name: 'Movies', url: 'https://iptv-org.github.io/iptv/categories/movies.m3u', icon: Film },
+    { name: 'News', url: 'https://iptv-org.github.io/iptv/categories/news.m3u', icon: Newspaper },
+  ];
+
+  const getAttribute = (line: string, attributeName: string) => {
+    const regex = new RegExp(`${attributeName}="([^"]*)"`, 'i');
+    const match = line.match(regex);
+    return match ? match[1] : '';
+  };
+
+  const parseM3U = (m3uText: string) => {
+    const lines = m3uText.split('\n');
+    const groupedChannels: { [key: string]: any[] } = {};
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.startsWith('#EXTINF')) {
+        const infoLine = line;
+        let streamUrl = '';
+        // Look for the next non-empty, non-comment line which should be the URL
+        for (let j = i + 1; j < lines.length; j++) {
+          const nextLine = lines[j].trim();
+          if (nextLine && !nextLine.startsWith('#')) {
+            streamUrl = nextLine;
+            i = j; // Skip to this line for the next iteration
+            break;
+          }
+        }
+        
+        if (infoLine && streamUrl) {
+          const logo = getAttribute(infoLine, 'tvg-logo');
+          let group = getAttribute(infoLine, 'group-title') || 'All Channels';
+          const namePart = infoLine.split(',').pop();
+          const name = namePart ? namePart.trim() : 'Unknown Channel';
+          const channelInfo = { logo, group, name, url: streamUrl };
+          if (!groupedChannels[channelInfo.group]) {
+            groupedChannels[channelInfo.group] = [];
+          }
+          groupedChannels[channelInfo.group].push(channelInfo);
+        }
+      }
+    }
+    return groupedChannels;
+  };
+
+  const loadPlaylist = async (url: string) => {
+    setIsPlaylistLoading(true);
+    setCurrentPlaylistUrl(url);
+    
+    const proxies = [
+      (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+      (u: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+      (u: string) => u // Direct fetch as last resort
+    ];
+
+    let lastError = null;
+    for (const getProxyUrl of proxies) {
+      try {
+        const targetUrl = getProxyUrl(url);
+        const response = await fetch(targetUrl);
+        if (!response.ok) continue;
+        
+        const m3uText = await response.text();
+        const grouped = parseM3U(m3uText);
+        
+        if (Object.keys(grouped).length > 0) {
+          setPlaylistChannels(grouped);
+          setPlaylistFilter('All');
+          setIsPlaylistLoading(false);
+          return; // Success!
+        }
+      } catch (error) {
+        lastError = error;
+        console.warn(`Proxy failed for ${url}, trying next...`);
+      }
+    }
+
+    console.error('All proxies failed to load playlist:', lastError);
+    setPlaylistChannels({});
+    setIsPlaylistLoading(false);
+  };
+
+  useEffect(() => {
+    if (settings?.playlists && settings.playlists.length > 0 && !currentPlaylistUrl) {
+      loadPlaylist(settings.playlists[0].url);
+    }
+  }, [settings]);
 
   useEffect(() => {
     const unsubSettings = subscribeToSettings(setSettings);
@@ -127,8 +237,18 @@ export default function App() {
     return true;
   });
 
-  const filteredChannels = channels.filter(c => channelFilter === 'All' || c.categoryName === channelFilter);
-  const filteredHighlights = highlights.filter(h => highlightFilter === 'All' || h.categoryName === highlightFilter);
+  const filteredChannels = channels.filter(c => {
+    const matchesCategory = channelFilter === 'All' || c.categoryName === channelFilter;
+    const matchesSearch = c.name.toLowerCase().includes(channelSearchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
+  const filteredHighlights = highlights.filter(h => {
+    const matchesCategory = highlightFilter === 'All' || h.categoryName === highlightFilter;
+    const matchesSearch = h.title.toLowerCase().includes(highlightSearchQuery.toLowerCase()) || 
+                         h.description.toLowerCase().includes(highlightSearchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   const openPlayer = (servers: Server[]) => {
     setSelectedMatchServers(servers);
@@ -190,7 +310,7 @@ export default function App() {
                         }}
                         className="w-full p-3 flex items-center gap-3 hover:bg-white/5 border-b border-white/5 last:border-0 text-left transition-colors"
                       >
-                        <img src={match.team1Logo} className="w-8 h-8 rounded-full object-contain bg-white p-0.5" alt="" />
+                        <img src={match.team1Logo || undefined} className="w-8 h-8 rounded-full object-contain bg-white p-0.5" alt="" />
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-semibold truncate">{match.team1Name} vs {match.team2Name}</div>
                           <div className="text-[10px] text-gray-400 truncate">{match.title}</div>
@@ -252,7 +372,7 @@ export default function App() {
             </div>
 
             {/* Top Banner */}
-            {banners?.homeTop && (
+            {banners?.homeTop && banners.homeTop.imageUrl && (
               <a href={banners.homeTop.targetUrl} target="_blank" rel="noopener noreferrer" className="block mb-6 rounded-xl overflow-hidden border border-primary/30">
                 <img src={banners.homeTop.imageUrl} className="w-full h-auto" alt="Ad" />
               </a>
@@ -308,7 +428,7 @@ export default function App() {
 
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex-1 flex flex-col items-center text-center">
-                        <img src={match.team1Logo} className="w-12 h-12 rounded-full object-contain bg-white p-1 mb-2 border border-white/10" alt="" />
+                        <img src={match.team1Logo || undefined} className="w-12 h-12 rounded-full object-contain bg-white p-1 mb-2 border border-white/10" alt="" />
                         <span className="text-xs font-bold line-clamp-1">{match.team1Name}</span>
                       </div>
 
@@ -328,7 +448,7 @@ export default function App() {
                       </div>
 
                       <div className="flex-1 flex flex-col items-center text-center">
-                        <img src={match.team2Logo} className="w-12 h-12 rounded-full object-contain bg-white p-1 mb-2 border border-white/10" alt="" />
+                        <img src={match.team2Logo || undefined} className="w-12 h-12 rounded-full object-contain bg-white p-1 mb-2 border border-white/10" alt="" />
                         <span className="text-xs font-bold line-clamp-1">{match.team2Name}</span>
                       </div>
                     </div>
@@ -347,6 +467,35 @@ export default function App() {
 
         {activeTab === 'channels' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            {/* Featured Playlists Quick Access */}
+            <div className="grid grid-cols-3 gap-2 mb-6">
+              {featuredPlaylists.map((pl, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    loadPlaylist(pl.url);
+                    setActiveTab('playlist');
+                  }}
+                  className="flex flex-col items-center justify-center p-3 glass-card hover:border-secondary transition-all gap-1 group"
+                >
+                  <pl.icon className="w-5 h-5 text-secondary group-hover:scale-110 transition-transform" />
+                  <span className="text-[10px] font-bold">{pl.name}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Search Bar */}
+            <div className="relative mb-6">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <input 
+                type="text" 
+                placeholder="Search channels..." 
+                value={channelSearchQuery}
+                onChange={(e) => setChannelSearchQuery(e.target.value)}
+                className="w-full bg-bg-card border border-white/10 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:border-secondary transition-colors"
+              />
+            </div>
+
             <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar">
               <button
                 onClick={() => setChannelFilter('All')}
@@ -369,26 +518,54 @@ export default function App() {
               ))}
             </div>
 
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-              {filteredChannels.map(channel => (
-                <button
-                  key={channel.id}
-                  onClick={() => openPlayer([{ name: 'Default', url: channel.streamUrl }])}
-                  className="glass-card p-4 flex flex-col items-center gap-3 hover:border-secondary transition-all group aspect-square justify-center"
-                >
-                  <img src={channel.logoUrl} className="w-full h-12 object-contain" alt={channel.name} />
-                  <span className="text-[10px] font-bold text-center line-clamp-2">{channel.name}</span>
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
-                    <PlayCircle className="w-8 h-8 text-secondary" />
-                  </div>
-                </button>
-              ))}
-            </div>
+            {channels.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-50">
+                <Tv className="w-12 h-12" />
+                <p className="text-xs font-bold">No channels available</p>
+              </div>
+            ) : filteredChannels.length === 0 ? (
+              <div className="text-center py-20 text-gray-500 text-xs font-bold">
+                No channels found matching "{channelSearchQuery}"
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
+                {filteredChannels.map(channel => (
+                  <button
+                    key={channel.id}
+                    onClick={() => openPlayer([{ name: 'Default', url: channel.streamUrl }])}
+                    className="glass-card p-4 flex flex-col items-center gap-3 hover:border-secondary transition-all group aspect-square justify-center relative overflow-hidden"
+                  >
+                    <img 
+                      src={channel.logoUrl || undefined} 
+                      className="w-full h-12 object-contain z-10" 
+                      alt={channel.name} 
+                      onError={(e) => { e.currentTarget.src = 'https://placehold.co/60x45/222/fff?text=...'; }}
+                    />
+                    <span className="text-[10px] font-bold text-center line-clamp-2 z-10">{channel.name}</span>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <PlayCircle className="w-8 h-8 text-secondary drop-shadow-[0_0_10px_rgba(0,200,83,0.5)]" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </motion.div>
         )}
 
         {activeTab === 'highlights' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            {/* Search Bar */}
+            <div className="relative mb-6">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <input 
+                type="text" 
+                placeholder="Search highlights..." 
+                value={highlightSearchQuery}
+                onChange={(e) => setHighlightSearchQuery(e.target.value)}
+                className="w-full bg-bg-card border border-white/10 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:border-primary transition-colors"
+              />
+            </div>
+
             <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar">
               <button
                 onClick={() => setHighlightFilter('All')}
@@ -411,26 +588,125 @@ export default function App() {
               ))}
             </div>
 
-            <div className="space-y-4">
-              {filteredHighlights.map(highlight => (
-                <button
-                  key={highlight.id}
-                  onClick={() => openPlayer([{ name: 'Highlight', url: highlight.videoUrl }])}
-                  className="w-full glass-card p-3 flex gap-4 text-left hover:border-primary transition-all group"
-                >
-                  <div className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden border border-primary/20">
-                    <img src={highlight.thumbnailUrl} className="w-full h-full object-cover" alt="" />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <PlayCircle className="w-8 h-8 text-white" />
+            {highlights.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-50">
+                <PlayCircle className="w-12 h-12" />
+                <p className="text-xs font-bold">No highlights available</p>
+              </div>
+            ) : filteredHighlights.length === 0 ? (
+              <div className="text-center py-20 text-gray-500 text-xs font-bold">
+                No highlights found matching "{highlightSearchQuery}"
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredHighlights.map(highlight => (
+                  <button
+                    key={highlight.id}
+                    onClick={() => openPlayer([{ name: 'Highlight', url: highlight.videoUrl }])}
+                    className="w-full glass-card p-3 flex gap-4 text-left hover:border-primary transition-all group"
+                  >
+                    <div className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden border border-primary/20">
+                      <img src={highlight.thumbnailUrl || undefined} className="w-full h-full object-cover" alt="" />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <PlayCircle className="w-8 h-8 text-white" />
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex-1 min-w-0 py-1">
-                    <h3 className="text-sm font-bold line-clamp-1 mb-1">{highlight.title}</h3>
-                    <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">{highlight.description}</p>
-                  </div>
+                    <div className="flex-1 min-w-0 py-1">
+                      <h3 className="text-sm font-bold line-clamp-1 mb-1">{highlight.title}</h3>
+                      <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">{highlight.description}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {activeTab === 'playlist' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            {settings?.playlists && settings.playlists.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar mb-4">
+                {settings.playlists.map((pl, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => loadPlaylist(pl.url)}
+                    className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
+                      currentPlaylistUrl === pl.url ? 'bg-primary text-white' : 'bg-bg-card border border-white/10 text-gray-400'
+                    }`}
+                  >
+                    {pl.name.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar">
+              <button
+                onClick={() => setPlaylistFilter('All')}
+                className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
+                  playlistFilter === 'All' ? 'bg-secondary text-black' : 'bg-bg-card border border-white/10 text-gray-400'
+                }`}
+              >
+                ALL
+              </button>
+              {Object.keys(playlistChannels).map(group => (
+                <button
+                  key={group}
+                  onClick={() => setPlaylistFilter(group)}
+                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
+                    playlistFilter === group ? 'bg-secondary text-black' : 'bg-bg-card border border-white/10 text-gray-400'
+                  }`}
+                >
+                  {group.toUpperCase()}
                 </button>
               ))}
             </div>
+
+            {isPlaylistLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <div className="w-10 h-10 border-4 border-secondary border-t-transparent rounded-full animate-spin" />
+                <p className="text-xs font-bold text-secondary">Loading Playlist...</p>
+              </div>
+            ) : Object.keys(playlistChannels).length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-6 glass-card">
+                <ShieldAlert className="w-12 h-12 text-primary" />
+                <div className="text-center">
+                  <p className="text-sm font-bold text-white mb-1">Failed to load channels</p>
+                  <p className="text-xs text-gray-400">The playlist might be temporarily unavailable.</p>
+                </div>
+                <button 
+                  onClick={() => currentPlaylistUrl && loadPlaylist(currentPlaylistUrl)}
+                  className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-full font-bold text-xs shadow-lg shadow-primary/20"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Retry Loading
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
+                {Object.entries(playlistChannels)
+                  .filter(([group]) => playlistFilter === 'All' || group === playlistFilter)
+                  .flatMap(([_, channels]) => channels)
+                  .map((channel, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => openPlayer([{ name: channel.name, url: channel.url }])}
+                      className="glass-card p-4 flex flex-col items-center gap-3 hover:border-secondary transition-all group aspect-square justify-center relative"
+                    >
+                      <img 
+                        src={channel.logo || 'https://placehold.co/60x45/222/fff?text=...'} 
+                        className="w-full h-12 object-contain" 
+                        alt={channel.name} 
+                        onError={(e) => { e.currentTarget.src = 'https://placehold.co/60x45/222/fff?text=...'; }}
+                      />
+                      <span className="text-[10px] font-bold text-center line-clamp-2">{channel.name}</span>
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
+                        <PlayCircle className="w-8 h-8 text-secondary" />
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -439,7 +715,7 @@ export default function App() {
             <h2 className="text-2xl font-black text-primary mb-6 border-b-2 border-primary pb-2 inline-block">About Nihat TV</h2>
             <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
               <p><strong className="text-white">Nihat TV</strong> is your ultimate destination for streaming live sports matches, thrilling highlights, and a vast collection of live TV channels, all in one place.</p>
-              <p>This platform was developed and is passionately maintained by <strong className="text-white">HASAN</strong>. We are constantly working to improve the service and add new features to enhance your viewing experience.</p>
+              <p>This platform was developed and is passionately maintained by <a href="https://fb.com/nurnoby.rohman.99" target="_blank" rel="noopener noreferrer" className="font-black animate-neon text-lg inline-block hover:scale-110 transition-transform">নুরনবী রহমান</a>. We are constantly working to improve the service and add new features to enhance your viewing experience.</p>
               <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
                 <p className="text-xs font-bold text-red-400 mb-2 uppercase tracking-wider">Disclaimer</p>
                 <p className="text-xs">We do not host any content on our own servers. All streams and videos found on our platform are sourced from third-party services that are freely available on the internet. We are not responsible for the legality or copyright of the content.</p>
@@ -471,7 +747,7 @@ export default function App() {
                 <div>
                   <h3 className="font-bold text-white mb-1">Email</h3>
                   <p className="text-sm text-gray-400">For formal inquiries or copyright-related matters.</p>
-                  <a href="mailto:livefy.info@gmail.com" className="text-primary text-sm font-bold mt-2 inline-block hover:underline">livefy.info@gmail.com</a>
+                  <a href="mailto:sribordi2130@gmail.com" className="text-primary text-sm font-bold mt-2 inline-block hover:underline">sribordi2130@gmail.com</a>
                 </div>
               </div>
             </div>
@@ -517,6 +793,15 @@ export default function App() {
           <PlayCircle className={`w-6 h-6 ${activeTab === 'highlights' ? 'drop-shadow-[0_0_8px_rgba(230,0,35,0.5)]' : ''}`} />
           <span className="text-[10px] font-bold">Highlights</span>
         </button>
+        {settings?.playlists && settings.playlists.length > 0 && (
+          <button 
+            onClick={() => setActiveTab('playlist')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-full transition-all ${activeTab === 'playlist' ? 'text-secondary scale-110' : 'text-gray-500'}`}
+          >
+            <ListMusic className={`w-6 h-6 ${activeTab === 'playlist' ? 'drop-shadow-[0_0_8px_rgba(0,200,83,0.5)]' : ''}`} />
+            <span className="text-[10px] font-bold">Playlist</span>
+          </button>
+        )}
       </nav>
 
       {/* Side Menu */}
@@ -545,6 +830,7 @@ export default function App() {
                   { id: 'home', icon: Home, label: 'Home' },
                   { id: 'channels', icon: Tv, label: 'Live TV' },
                   { id: 'highlights', icon: PlayCircle, label: 'Highlights' },
+                  { id: 'playlist', icon: ListMusic, label: 'My Playlist' },
                   { id: 'contact', icon: Mail, label: 'Contact Us' },
                   { id: 'copyright', icon: ShieldAlert, label: 'Copyright' },
                   { id: 'about', icon: Info, label: 'About Us' },

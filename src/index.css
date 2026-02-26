@@ -47,6 +47,29 @@
   100% { transform: translateX(-100%); }
 }
 
+@keyframes neon-glow {
+  0%, 100% { 
+    color: #ff0000;
+    text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000;
+  }
+  25% { 
+    color: #00ff00;
+    text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00;
+  }
+  50% { 
+    color: #0000ff;
+    text-shadow: 0 0 10px #0000ff, 0 0 20px #0000ff;
+  }
+  75% { 
+    color: #ffff00;
+    text-shadow: 0 0 10px #ffff00, 0 0 20px #ffff00;
+  }
+}
+
+.animate-neon {
+  animation: neon-glow 3s infinite;
+}
+
 .animate-marquee {
   animation: marquee 30s linear infinite;
 }
