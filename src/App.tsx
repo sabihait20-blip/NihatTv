@@ -153,7 +153,7 @@ export default function App() {
         
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-black tracking-widest uppercase text-white drop-shadow-[0_0_10px_rgba(230,0,35,0.5)]">
-            LIVEFY TV
+            NIHAT TV
           </h1>
           <div className="w-8 h-5 bg-[#006a4e] rounded-sm border border-white/20 relative flex items-center justify-center overflow-hidden">
             <div className="w-3 h-3 bg-[#f42a41] rounded-full" />
@@ -215,7 +215,7 @@ export default function App() {
         </div>
         <div className="flex-1 overflow-hidden relative">
           <div className="animate-marquee whitespace-nowrap text-xs font-bold text-black py-1">
-            {settings?.welcomeMessage || 'Welcome to Livefy TV! Enjoy the best live sports experience.'}
+            {settings?.welcomeMessage || 'Welcome to Nihat TV! Enjoy the best live sports experience.'}
           </div>
         </div>
       </div>
@@ -436,9 +436,9 @@ export default function App() {
 
         {activeTab === 'about' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
-            <h2 className="text-2xl font-black text-primary mb-6 border-b-2 border-primary pb-2 inline-block">About Livefy TV</h2>
+            <h2 className="text-2xl font-black text-primary mb-6 border-b-2 border-primary pb-2 inline-block">About Nihat TV</h2>
             <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
-              <p><strong className="text-white">Livefy TV</strong> is your ultimate destination for streaming live sports matches, thrilling highlights, and a vast collection of live TV channels, all in one place.</p>
+              <p><strong className="text-white">Nihat TV</strong> is your ultimate destination for streaming live sports matches, thrilling highlights, and a vast collection of live TV channels, all in one place.</p>
               <p>This platform was developed and is passionately maintained by <strong className="text-white">HASAN</strong>. We are constantly working to improve the service and add new features to enhance your viewing experience.</p>
               <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
                 <p className="text-xs font-bold text-red-400 mb-2 uppercase tracking-wider">Disclaimer</p>
@@ -482,7 +482,7 @@ export default function App() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
             <h2 className="text-2xl font-black text-white mb-6 border-b-2 border-white pb-2 inline-block">Copyright Policy</h2>
             <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
-              <p><strong className="text-white">Livefy TV</strong> respects the intellectual property rights of others. All content is sourced from third-party websites publicly accessible on the internet.</p>
+              <p><strong className="text-white">Nihat TV</strong> respects the intellectual property rights of others. All content is sourced from third-party websites publicly accessible on the internet.</p>
               <p>We do <strong className="text-white">not</strong> host, upload, or control any of the video content displayed. If you believe content infringes on your copyright, please contact the third-party provider.</p>
             </div>
           </motion.div>
@@ -491,7 +491,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="mt-12 py-8 text-center text-[10px] text-gray-500 border-t border-white/5">
-        <p>Copyright © {new Date().getFullYear()} Livefy TV. All Rights Reserved.</p>
+        <p>Copyright © {new Date().getFullYear()} Nihat TV. All Rights Reserved.</p>
       </footer>
 
       {/* Bottom Nav */}
@@ -587,7 +587,7 @@ export default function App() {
               <div className="rounded-2xl overflow-hidden border-4 border-secondary shadow-[0_0_50px_rgba(0,200,83,0.3)] bg-black aspect-video relative">
                 <video ref={videoRef} playsInline controls className="w-full h-full" />
                 <div className="absolute top-4 left-4 px-3 py-1 bg-black/60 border border-secondary/50 rounded text-[10px] font-black text-secondary z-20 pointer-events-none">
-                  LIVEFY TV
+                  NIHAT TV
                 </div>
               </div>
 
