@@ -48,6 +48,34 @@ import { AppSettings, Banners, Category, Channel, Highlight, Match, Server } fro
 
 type Tab = 'home' | 'channels' | 'highlights' | 'playlist' | 'about' | 'contact' | 'copyright';
 
+const AdScript = () => {
+  const adRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (adRef.current && !adRef.current.firstChild) {
+      const config = document.createElement('script');
+      config.type = 'text/javascript';
+      config.innerHTML = `
+        atOptions = {
+          'key' : 'cc049afd2f30424fd0d67afd2d41324e',
+          'format' : 'iframe',
+          'height' : 50,
+          'width' : 320,
+          'params' : {}
+        };
+      `;
+      const script = document.createElement('script');
+      script.type = 'text/javascript';
+      script.src = 'https://www.highperformanceformat.com/cc049afd2f30424fd0d67afd2d41324e/invoke.js';
+      
+      adRef.current.appendChild(config);
+      adRef.current.appendChild(script);
+    }
+  }, []);
+
+  return <div ref={adRef} className="flex justify-center mb-6 min-h-[50px]" />;
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -372,12 +400,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* Top Banner */}
-            {banners?.homeTop && banners.homeTop.imageUrl && (
-              <a href={banners.homeTop.targetUrl} target="_blank" rel="noopener noreferrer" className="block mb-6 rounded-xl overflow-hidden border border-primary/30">
-                <img src={banners.homeTop.imageUrl} className="w-full h-auto" alt="Ad" />
-              </a>
-            )}
+            {/* Top Banner - Replaced with Script Ad */}
+            <AdScript />
 
             {/* Match Filters */}
             <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar">
