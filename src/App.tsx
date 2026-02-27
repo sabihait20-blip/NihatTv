@@ -76,6 +76,34 @@ const AdScript = () => {
   return <div ref={adRef} className="flex justify-center mb-6 min-h-[50px]" />;
 };
 
+const FooterAdScript = () => {
+  const adRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (adRef.current && !adRef.current.firstChild) {
+      const config = document.createElement('script');
+      config.type = 'text/javascript';
+      config.innerHTML = `
+        atOptions = {
+          'key' : '8a13a780322fcc0c52378079ccb655e6',
+          'format' : 'iframe',
+          'height' : 90,
+          'width' : 728,
+          'params' : {}
+        };
+      `;
+      const script = document.createElement('script');
+      script.type = 'text/javascript';
+      script.src = 'https://www.highperformanceformat.com/8a13a780322fcc0c52378079ccb655e6/invoke.js';
+      
+      adRef.current.appendChild(config);
+      adRef.current.appendChild(script);
+    }
+  }, []);
+
+  return <div ref={adRef} className="flex justify-center mb-6 min-h-[90px]" />;
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -790,6 +818,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="mt-12 py-8 text-center text-[10px] text-gray-500 border-t border-white/5">
+        <FooterAdScript />
         <p>Copyright © {new Date().getFullYear()} Nihat TV. All Rights Reserved.</p>
       </footer>
 
