@@ -26,7 +26,8 @@ import {
   Music as MusicIcon,
   Trophy,
   Film,
-  Newspaper
+  Newspaper,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import moment from 'moment';
@@ -358,17 +359,17 @@ export default function App() {
                 Online: {onlineCount}
               </div>
 
-              {settings?.telegramLink && (
-                <a 
-                  href={settings.telegramLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary to-secondary text-black rounded-full font-bold text-sm shadow-lg shadow-primary/20"
-                >
-                  <Send className="w-4 h-4" />
-                  Join Now
-                </a>
-              )}
+              <div className="flex items-center gap-3 px-4 py-2 bg-bg-card border border-white/10 rounded-xl shadow-inner">
+                <Clock className="w-4 h-4 text-secondary animate-pulse" />
+                <div className="flex flex-col items-start leading-tight">
+                  <span className="text-sm font-black text-white font-mono tracking-tighter">
+                    {currentTime.format('HH:mm:ss')}
+                  </span>
+                  <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
+                    {currentTime.format('DD MMM YYYY')}
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* Top Banner */}
