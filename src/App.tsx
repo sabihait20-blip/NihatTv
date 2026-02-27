@@ -736,9 +736,7 @@ export default function App() {
                 <div>
                   <h3 className="font-bold text-white mb-1">Telegram</h3>
                   <p className="text-sm text-gray-400">For the quickest support and to join our community.</p>
-                  {settings?.telegramLink && (
-                    <a href={settings.telegramLink} target="_blank" rel="noopener noreferrer" className="text-secondary text-sm font-bold mt-2 inline-block hover:underline">Join Official Channel</a>
-                  )}
+                  <a href="https://t.me/nihattv" target="_blank" rel="noopener noreferrer" className="text-secondary text-sm font-bold mt-2 inline-block hover:underline">Join Official Channel</a>
                 </div>
               </div>
               <div className="flex items-start gap-4">
